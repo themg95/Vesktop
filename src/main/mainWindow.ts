@@ -11,18 +11,19 @@ import {
     dialog,
     Menu,
     MenuItemConstructorOptions,
+    nativeImage,
     nativeTheme,
     screen,
     Tray
 } from "electron";
-import { rm } from "fs/promises";
+import { readFile, rm } from "fs/promises";
 import { join } from "path";
 import { IpcEvents } from "shared/IpcEvents";
 import { isTruthy } from "shared/utils/guards";
 import { once } from "shared/utils/once";
 import type { SettingsStore } from "shared/utils/SettingsStore";
 
-import { ICON_PATH } from "../shared/paths";
+import { ICON_PATH, STATIC_DIR } from "../shared/paths";
 import { createAboutWindow } from "./about";
 import { initArRPC } from "./arrpc";
 import {
@@ -387,7 +388,8 @@ function createMainWindow() {
             contextIsolation: true,
             devTools: true,
             preload: join(__dirname, "preload.js"),
-            spellcheck: true
+            spellcheck: true,
+            backgroundThrottling: false
         },
         icon: ICON_PATH,
         frame: !noFrame,
@@ -481,4 +483,23 @@ export async function createWindows() {
     });
 
     initArRPC();
+}
+
+export async function setTrayIcon(iconURI: string) {
+    if (!tray || tray.isDestroyed()) return;
+    if (iconURI !== "" && iconURI !== "icon") {
+        tray.setImage(nativeImage.createFromDataURL(iconURI));
+        return;
+    }
+    tray.setImage(join(STATIC_DIR, "icon.png"));
+}
+
+export async function getTrayIconFile(iconName: string) {
+    const Icons = new Set(["speaking", "muted", "deafened", "idle"]);
+
+    if (!Icons.has(iconName)) {
+        iconName = "icon";
+        return readFile(join(STATIC_DIR, "icon.png"));
+    }
+    return readFile(join(STATIC_DIR, iconName + ".svg"), "utf8");
 }
