@@ -36,6 +36,7 @@ import {
     MIN_WIDTH,
     VENCORD_FILES_DIR
 } from "./constants";
+import { initKeybinds } from "./keybinds";
 import { Settings, State, VencordSettings } from "./settings";
 import { createSplashWindow } from "./splash";
 import { makeLinksOpenExternally } from "./utils/makeLinksOpenExternally";
@@ -483,6 +484,7 @@ export async function createWindows() {
     });
 
     initArRPC();
+    initKeybinds();
 }
 
 export async function setTrayIcon(iconURI: string) {
