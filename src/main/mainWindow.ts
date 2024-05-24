@@ -14,6 +14,7 @@ import {
     nativeImage,
     nativeTheme,
     screen,
+    session,
     Tray
 } from "electron";
 import { readFile, rm } from "fs/promises";
@@ -37,6 +38,7 @@ import {
     VENCORD_FILES_DIR
 } from "./constants";
 import { initKeybinds } from "./keybinds";
+import { isWayland } from "./screenShare";
 import { Settings, State, VencordSettings } from "./settings";
 import { createSplashWindow } from "./splash";
 import { makeLinksOpenExternally } from "./utils/makeLinksOpenExternally";
@@ -362,12 +364,27 @@ function initSettingsListeners(win: BrowserWindow) {
     addSettingsListener("enableMenu", enabled => {
         win.setAutoHideMenuBar(enabled ?? false);
     });
+
+    addSettingsListener("spellCheckLanguages", languages => initSpellCheckLanguages(win, languages));
+}
+
+async function initSpellCheckLanguages(win: BrowserWindow, languages?: string[]) {
+    languages ??= await win.webContents.executeJavaScript("[...new Set(navigator.languages)]").catch(() => []);
+    if (!languages) return;
+
+    const ses = session.defaultSession;
+
+    const available = ses.availableSpellCheckerLanguages;
+    const applicable = languages.filter(l => available.includes(l)).slice(0, 5);
+    if (applicable.length) ses.setSpellCheckerLanguages(applicable);
 }
 
 function initSpellCheck(win: BrowserWindow) {
     win.webContents.on("context-menu", (_, data) => {
         win.webContents.send(IpcEvents.SPELLCHECK_RESULT, data.misspelledWord, data.dictionarySuggestions);
     });
+
+    initSpellCheckLanguages(win, Settings.store.spellCheckLanguages);
 }
 
 function createMainWindow() {
@@ -454,6 +471,7 @@ const runVencordMain = once(() => require(join(VENCORD_FILES_DIR, "vencordDeskto
 export async function createWindows() {
     const startMinimized = process.argv.includes("--start-minimized");
     const splash = createSplashWindow(startMinimized);
+    process.title = "Vesktop";
     // SteamOS letterboxes and scales it terribly, so just full screen it
     if (isDeckGameMode) splash.setFullScreen(true);
     await ensureVencordFiles();
@@ -484,7 +502,7 @@ export async function createWindows() {
     });
 
     initArRPC();
-    initKeybinds();
+    if (isWayland) initKeybinds();
 }
 
 export async function setTrayIcon(iconURI: string) {
