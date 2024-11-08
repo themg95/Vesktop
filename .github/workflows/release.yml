@@ -12,19 +12,19 @@ jobs:
 
         strategy:
             matrix:
-                os: [macos-latest, ubuntu-latest, windows-latest]
+                os: [ ubuntu-latest ]
                 include:
                     - os: ubuntu-latest
                       platform: linux
 
         steps:
-            - uses: actions/checkout@v4
-            - uses: pnpm/action-setup@v4 # Install pnpm using packageManager key in package.json
+            - uses: actions/checkout@v3
+            - uses: pnpm/action-setup@v2 # Install pnpm using packageManager key in package.json
 
-            - name: Use Node.js 20
-              uses: actions/setup-node@v4
+            - name: Use Node.js 18.18.2
+              uses: actions/setup-node@v3
               with:
-                  node-version: 20
+                  node-version: 18.18.2
                   cache: "pnpm"
 
             - name: Install dependencies
@@ -34,22 +34,17 @@ jobs:
               run: pnpm build
 
             - name: Run Electron Builder
-              if: ${{ matrix.platform != 'mac' }}
               run: |
-                  pnpm electron-builder --${{ matrix.platform }} --publish always
+                  pnpm electron-builder --${{ matrix.platform }} --publish never
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  CSC_LINK: ${{ secrets.APPLE_SIGNING_CERT }} # Only relevant on macOS
+              if: ${{ matrix.platform == 'mac' || matrix.platform == 'linux' || matrix.platform == 'windows' }}
 
-            - name: Run Electron Builder
-              if: ${{ matrix.platform == 'mac' }}
-              run: |
-                  echo "$API_KEY" > apple.p8
-                  pnpm electron-builder --${{ matrix.platform }} --publish always
-              env:
-                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                CSC_LINK: ${{ secrets.APPLE_SIGNING_CERT }}
-                CSC_KEY_PASSWORD: ${{ secrets.APPLE_SIGNING_CERT_PASSWORD }}
-                API_KEY: ${{ secrets.APPLE_API_KEY }}
-                APPLE_API_KEY: apple.p8
-                APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-                APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+            - name: Upload Artifact
+              uses: actions/upload-artifact@v3
+              with:
+                  name: ${matrix.platform}-build
+                  path: |
+                    dist/*.*
+                    release/**/*
